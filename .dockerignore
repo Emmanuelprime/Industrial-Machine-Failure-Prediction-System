@@ -1,0 +1,14 @@
+.env
+.env.*
+.venv/
+.git/
+.mypy_cache/
+__pycache__/
+*.py[cod]
+*.csv
+*.ipynb
+training/
+uv.lock
+pyproject.toml
+README.md
+main.py

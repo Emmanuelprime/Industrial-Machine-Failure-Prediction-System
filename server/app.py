@@ -1,22 +1,13 @@
 import os
 
 import joblib
-import pandas as pd
+import numpy as np
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
 MODEL_PATH = os.environ.get("MODEL_PATH", "models/machine_failure_model.pkl")
 THRESHOLD = 0.5  # probability at or above this is reported as "failure likely"
-
-FEATURES = [
-    "Type",
-    "Air temperature [K]",
-    "Process temperature [K]",
-    "Rotational speed [rpm]",
-    "Torque [Nm]",
-    "Tool wear [min]",
-]
 
 # HTML form field name -> model feature name
 FORM_TO_FEATURE = {
@@ -80,11 +71,17 @@ def parse_inputs(data):
 
 def run_prediction(cleaned):
     """Return (failure: bool, probability: float) for validated inputs."""
-    row = {
-        FORM_TO_FEATURE[field]: (TYPE_MAP[value] if field == "type" else value)
-        for field, value in cleaned.items()
-    }
-    X = pd.DataFrame([row], columns=FEATURES)
+    X = np.array(
+        [[
+            TYPE_MAP[cleaned["type"]],
+            cleaned["air_temp"],
+            cleaned["process_temp"],
+            cleaned["rpm"],
+            cleaned["torque"],
+            cleaned["tool_wear"],
+        ]],
+        dtype=np.float64,
+    )
 
     if hasattr(model, "predict_proba"):
         probability = float(model.predict_proba(X)[0][1])
