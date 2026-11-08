@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Machine Failure Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #e8ecef;
+      --panel: #ffffff;
+      --ink: #1b2630;
+      --muted: #5b6b78;
+      --line: #cdd5db;
+      --steel: #2d5f80;
+      --steel-dark: #1f4660;
+      --ok: #2f7d4f;
+      --warn: #c98a00;
+      --bad: #b83a2e;
+      --radius: 6px;
+      --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :focus-visible { outline: 3px solid var(--steel); outline-offset: 2px; }
+
+    .topbar {
+      background: var(--steel-dark);
+      color: #fff;
+    }
+    .topbar-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      font-family: var(--font-head);
+      font-weight: 600;
+      font-size: 1.15rem;
+      letter-spacing: 0.01em;
+    }
+    .topbar a {
+      color: #cfe0ec;
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .topbar a:hover { color: #fff; text-decoration: underline; }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+
+    .intro { max-width: 640px; margin-bottom: 36px; }
+    .intro h1 {
+      font-family: var(--font-head);
+      font-weight: 700;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      margin: 0 0 14px;
+    }
+    .intro p { margin: 0; color: var(--muted); font-size: 1.05rem; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    /* ---------- Form ---------- */
+    .form-card { padding: 28px; }
+
+    .form-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .form-head h2 {
+      font-family: var(--font-head);
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0;
+    }
+    .form-head p { margin: 2px 0 0; color: var(--muted); font-size: 0.92rem; }
+
+    .presets { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-ghost {
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--steel-dark);
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .btn-ghost:hover { border-color: var(--steel); background: #f3f7fa; }
+
+    fieldset { border: 0; margin: 0 0 28px; padding: 0; }
+    legend, .field-label {
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 0;
+    }
+
+    /* Segmented control for machine type */
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .segmented label { position: relative; cursor: pointer; }
+    .segmented input {
+      position: absolute;
+      opacity: 0;
+      inset: 0;
+      cursor: pointer;
+    }
+    .segmented span {
+      display: block;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 0.95rem;
+      border-left: 1px solid var(--line);
+      background: #fff;
+      transition: background 0.15s, color 0.15s;
+    }
+    .segmented label:first-child span { border-left: 0; }
+    .segmented strong { display: block; font-family: var(--font-head); font-size: 1.2rem; }
+    .segmented small { color: var(--muted); font-size: 0.78rem; }
+    .segmented input:checked + span { background: var(--steel); color: #fff; }
+    .segmented input:checked + span small { color: #d6e5ef; }
+    .segmented input:focus-visible + span { outline: 3px solid var(--steel); outline-offset: -3px; }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 26px 28px;
+    }
+
+    .field-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .number-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .number-wrap input {
+      width: 92px;
+      font: inherit;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      color: var(--ink);
+      background: #f5f8fa;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 5px 8px;
+    }
+    .number-wrap input:hover { border-color: #9fb0bc; }
+    .unit { color: var(--muted); font-size: 0.85rem; min-width: 2.4em; }
+
+    .hint { margin: 6px 0 0; font-size: 0.8rem; color: var(--muted); }
+
+    /* Range slider */
+    input[type="range"] {
+      --fill: 50%;
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right, var(--steel) var(--fill), #d7dee3 var(--fill));
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--steel);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--steel);
+    }
+
+    .actions {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      font: inherit;
+      font-weight: 600;
+      color: #fff;
+      background: var(--steel);
+      border: 0;
+      border-radius: var(--radius);
+      padding: 13px 28px;
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--steel-dark); }
+    .btn-primary[disabled] { opacity: 0.7; cursor: progress; }
+    .actions p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+
+    /* ---------- Result ---------- */
+    .result-card {
+      padding: 28px;
+      position: sticky;
+      top: 24px;
+    }
+    .result-card h2 {
+      font-family: var(--font-head);
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 20px;
+    }
+
+    .gauge { width: 100%; max-width: 320px; margin: 0 auto; display: block; }
+    .gauge-track { fill: none; stroke: #dde3e8; stroke-width: 16; stroke-linecap: round; }
+    .gauge-value {
+      fill: none;
+      stroke: var(--muted);
+      stroke-width: 16;
+      stroke-linecap: round;
+      stroke-dasharray: 282.74;
+      stroke-dashoffset: 282.74;
+    }
+    .gauge-value.is-ok   { stroke: var(--ok); }
+    .gauge-value.is-warn { stroke: var(--warn); }
+    .gauge-value.is-bad  { stroke: var(--bad); }
+    .gauge-value.animate { transition: stroke-dashoffset 1.1s cubic-bezier(0.22, 0.8, 0.3, 1); }
+    .gauge-number {
+      font-family: var(--font-head);
+      font-weight: 700;
+      font-size: 38px;
+      fill: var(--ink);
+      text-anchor: middle;
+    }
+    .gauge-caption { font-size: 11px; fill: var(--muted); text-anchor: middle; }
+
+    .verdict {
+      margin-top: 8px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border-left: 5px solid var(--muted);
+      background: #f3f6f8;
+    }
+    .verdict.is-ok   { border-color: var(--ok);   background: #eef6f1; }
+    .verdict.is-warn { border-color: var(--warn); background: #fbf5e6; }
+    .verdict.is-bad  { border-color: var(--bad);  background: #fbeeec; }
+    .verdict strong { display: block; font-size: 1.05rem; }
+    .verdict span { color: var(--muted); font-size: 0.9rem; }
+
+    .readback {
+      margin: 20px 0 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px 12px;
+      font-size: 0.88rem;
+    }
+    .readback dt { color: var(--muted); }
+    .readback dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+    .about {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      max-width: 640px;
+    }
+
+    @media (max-width: 920px) {
+      .layout { grid-template-columns: 1fr; }
+      .result-card { position: static; }
+    }
+    @media (max-width: 560px) {
+      main { padding: 32px 16px 48px; }
+      .form-card, .result-card { padding: 20px; }
+      .fields { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .gauge-value.animate { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  {# Expected from Flask:
+     form   -> dict of the submitted values (optional), keys: type, air_temp, process_temp, rpm, torque, tool_wear
+     result -> dict (optional): {"failure": bool, "probability": float between 0 and 1}
+  #}
+  {% set f = form or {} %}
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">Machine Failure Predictor</span>
+      <a href="" rel="noopener">View project on GitHub</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h1>Will this machine fail?</h1>
+      <p>Enter the latest sensor readings and the model will estimate the likelihood of a failure, so maintenance can be scheduled before it happens.</p>
+    </section>
+
+    <div class="layout">
+      <!-- ===== Input form ===== -->
+      <section class="card form-card" aria-labelledby="form-title">
+        <div class="form-head">
+          <div>
+            <h2 id="form-title">Machine readings</h2>
+            <p>Drag a slider or type a value.</p>
+          </div>
+          <div class="presets">
+            <button type="button" class="btn-ghost" data-preset="typical">Load typical reading</button>
+            <button type="button" class="btn-ghost" data-preset="strain">Load high-strain reading</button>
+          </div>
+        </div>
+
+        <form id="predict-form" action="{{ url_for('predict') }}" method="post">
+          <fieldset>
+            <legend>Product quality variant</legend>
+            <div class="segmented">
+              <label>
+                <input type="radio" name="type" value="L" {% if f.get('type') == 'L' %}checked{% endif %} required>
+                <span><strong>L</strong><small>Low</small></span>
+              </label>
+              <label>
+                <input type="radio" name="type" value="M" {% if f.get('type', 'M') == 'M' %}checked{% endif %}>
+                <span><strong>M</strong><small>Medium</small></span>
+              </label>
+              <label>
+                <input type="radio" name="type" value="H" {% if f.get('type') == 'H' %}checked{% endif %}>
+                <span><strong>H</strong><small>High</small></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="fields">
+            <div class="field">
+              <div class="field-top">
+                <label class="field-label" for="air_temp">Air temperature</label>
+                <div class="number-wrap">
+                  <input type="number" id="air_temp" name="air_temp" min="295" max="305" step="0.1" value="{{ f.get('air_temp', 300.0) }}" required>
+                  <span class="unit">K</span>
+                </div>
+              </div>
+              <input type="range" data-for="air_temp" min="295" max="305" step="0.1" aria-label="Air temperature slider">
+              <p class="hint">Typical range 295–305 K</p>
+            </div>
+
+            <div class="field">
+              <div class="field-top">
+                <label class="field-label" for="process_temp">Process temperature</label>
+                <div class="number-wrap">
+                  <input type="number" id="process_temp" name="process_temp" min="305" max="315" step="0.1" value="{{ f.get('process_temp', 310.0) }}" required>
+                  <span class="unit">K</span>
+                </div>
+              </div>
+              <input type="range" data-for="process_temp" min="305" max="315" step="0.1" aria-label="Process temperature slider">
+              <p class="hint">Typical range 305–315 K</p>
+            </div>
+
+            <div class="field">
+              <div class="field-top">
+                <label class="field-label" for="rpm">Rotational speed</label>
+                <div class="number-wrap">
+                  <input type="number" id="rpm" name="rpm" min="1100" max="2900" step="1" value="{{ f.get('rpm', 1500) }}" required>
+                  <span class="unit">rpm</span>
+                </div>
+              </div>
+              <input type="range" data-for="rpm" min="1100" max="2900" step="1" aria-label="Rotational speed slider">
+              <p class="hint">Typical range 1,100–2,900 rpm</p>
+            </div>
+
+            <div class="field">
+              <div class="field-top">
+                <label class="field-label" for="torque">Torque</label>
+                <div class="number-wrap">
+                  <input type="number" id="torque" name="torque" min="3" max="80" step="0.1" value="{{ f.get('torque', 40.0) }}" required>
+                  <span class="unit">Nm</span>
+                </div>
+              </div>
+              <input type="range" data-for="torque" min="3" max="80" step="0.1" aria-label="Torque slider">
+              <p class="hint">Typical range 3–80 Nm</p>
+            </div>
+
+            <div class="field">
+              <div class="field-top">
+                <label class="field-label" for="tool_wear">Tool wear</label>
+                <div class="number-wrap">
+                  <input type="number" id="tool_wear" name="tool_wear" min="0" max="260" step="1" value="{{ f.get('tool_wear', 100) }}" required>
+                  <span class="unit">min</span>
+                </div>
+              </div>
+              <input type="range" data-for="tool_wear" min="0" max="260" step="1" aria-label="Tool wear slider">
+              <p class="hint">Total minutes the tool has been in use</p>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn-primary" id="submit-btn">Check machine</button>
+            <p>Results are model estimates, not a guarantee.</p>
+          </div>
+        </form>
+      </section>
+
+      <!-- ===== Result ===== -->
+      <aside class="card result-card" aria-live="polite" aria-labelledby="result-title">
+        <h2 id="result-title">Failure risk</h2>
+
+        {% set has_result = result is defined and result %}
+        {% set pct = (result.probability * 100) if has_result else 0 %}
+        {% if not has_result %}
+          {% set tone = '' %}
+        {% elif pct < 30 %}
+          {% set tone = 'is-ok' %}
+        {% elif pct < 60 %}
+          {% set tone = 'is-warn' %}
+        {% else %}
+          {% set tone = 'is-bad' %}
+        {% endif %}
+
+        <svg class="gauge" viewBox="0 0 220 135" role="img"
+             aria-label="{% if has_result %}Failure risk {{ '%.1f' | format(pct) }} percent{% else %}No result yet{% endif %}">
+          <path class="gauge-track" d="M20 110 A90 90 0 0 1 200 110"/>
+          <path id="gauge-value" class="gauge-value {{ tone }}" data-percent="{{ '%.1f' | format(pct) }}" d="M20 110 A90 90 0 0 1 200 110"/>
+          <text class="gauge-number" x="110" y="98">{% if has_result %}{{ '%.1f' | format(pct) }}%{% else %}–{% endif %}</text>
+          <text class="gauge-caption" x="110" y="122">probability of failure</text>
+        </svg>
+
+        <div class="verdict {{ tone }}">
+          {% if not has_result %}
+            <strong>No result yet</strong>
+            <span>Set the readings and select “Check machine”.</span>
+          {% elif result.failure %}
+            <strong>Failure likely</strong>
+            <span>Inspect this machine and consider scheduling maintenance.</span>
+          {% else %}
+            <strong>No failure expected</strong>
+            <span>Readings are within the range the model considers healthy.</span>
+          {% endif %}
+        </div>
+
+        {% if has_result and form %}
+        <dl class="readback">
+          <dt>Variant</dt><dd>{{ form.get('type') }}</dd>
+          <dt>Air temperature</dt><dd>{{ form.get('air_temp') }} K</dd>
+          <dt>Process temperature</dt><dd>{{ form.get('process_temp') }} K</dd>
+          <dt>Rotational speed</dt><dd>{{ form.get('rpm') }} rpm</dd>
+          <dt>Torque</dt><dd>{{ form.get('torque') }} Nm</dd>
+          <dt>Tool wear</dt><dd>{{ form.get('tool_wear') }} min</dd>
+        </dl>
+        {% endif %}
+      </aside>
+    </div>
+
+    <p class="about">This is a portfolio project. The model predicts machine failure from six sensor and product readings and runs behind a Flask API.</p>
+  </main>
+
+  <script>
+    (function () {
+      var presets = {
+        typical: { type: "M", air_temp: 298.1, process_temp: 308.6, rpm: 1551, torque: 42.8, tool_wear: 0 },
+        strain:  { type: "L", air_temp: 302.5, process_temp: 311.8, rpm: 1290, torque: 68.5, tool_wear: 220 }
+      };
+
+      function setFill(range) {
+        var min = parseFloat(range.min), max = parseFloat(range.max), val = parseFloat(range.value);
+        var pct = ((val - min) / (max - min)) * 100;
+        range.style.setProperty("--fill", Math.max(0, Math.min(100, pct)) + "%");
+      }
+
+      document.querySelectorAll('input[type="range"][data-for]').forEach(function (range) {
+        var number = document.getElementById(range.dataset.for);
+        range.value = number.value;
+        setFill(range);
+
+        range.addEventListener("input", function () {
+          number.value = range.value;
+          setFill(range);
+        });
+        number.addEventListener("input", function () {
+          if (number.value !== "") { range.value = number.value; setFill(range); }
+        });
+      });
+
+      document.querySelectorAll("[data-preset]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var p = presets[btn.dataset.preset];
+          Object.keys(p).forEach(function (key) {
+            if (key === "type") {
+              var radio = document.querySelector('input[name="type"][value="' + p.type + '"]');
+              if (radio) radio.checked = true;
+              return;
+            }
+            var number = document.getElementById(key);
+            number.value = p[key];
+            number.dispatchEvent(new Event("input"));
+          });
+        });
+      });
+
+      // Gauge: sweep to the predicted value
+      var gauge = document.getElementById("gauge-value");
+      var pct = parseFloat(gauge.dataset.percent) || 0;
+      var length = 282.74;
+      if (pct > 0) {
+        requestAnimationFrame(function () {
+          gauge.classList.add("animate");
+          gauge.style.strokeDashoffset = length * (1 - pct / 100);
+        });
+      }
+
+      document.getElementById("predict-form").addEventListener("submit", function () {
+        var btn = document.getElementById("submit-btn");
+        btn.disabled = true;
+        btn.textContent = "Checking…";
+      });
+    })();
+  </script>
+</body>
+</html>
